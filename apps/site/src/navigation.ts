@@ -2,7 +2,8 @@ import { getPermalink } from './utils/permalinks';
 
 export const headerData = {
   links: [
-    { text: '검색', href: getPermalink('/search') },
+    { text: '우편번호 검색', href: getPermalink('/search') },
+    { text: '주소로 찾기', href: getPermalink('/address') },
     { text: '지역별', href: getPermalink('/sido') },
     { text: '데이터 안내', href: getPermalink('/data') },
   ],
@@ -14,7 +15,8 @@ export const footerData = {
     {
       title: '둘러보기',
       links: [
-        { text: '검색', href: getPermalink('/search') },
+        { text: '우편번호 검색', href: getPermalink('/search') },
+        { text: '주소로 찾기', href: getPermalink('/address') },
         { text: '지역별 우편번호', href: getPermalink('/sido') },
       ],
     },

@@ -11,3 +11,14 @@ if (!fs.existsSync(src)) {
 fs.mkdirSync('public', { recursive: true });
 fs.copyFileSync(src, path.join('public', 'zip_index.json'));
 console.log('[sync-data] zip_index.json 복사 완료');
+
+// 주소 조회 조각 (data/processed/addr → public/addr)
+const addrSrc = path.join(root, 'addr');
+if (!fs.existsSync(path.join(addrSrc, 'names.json'))) {
+  console.error(`[sync-data] ${addrSrc}/names.json 이 없습니다. data/notebooks/02_build_address_index_v1.ipynb 를 먼저 실행하세요.`);
+  process.exit(1);
+}
+fs.rmSync(path.join('public', 'addr'), { recursive: true, force: true });
+fs.cpSync(addrSrc, path.join('public', 'addr'), { recursive: true });
+fs.rmSync(path.join('public', 'addr', 'meta.json'), { force: true });
+console.log('[sync-data] addr/ 복사 완료');

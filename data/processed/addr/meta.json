@@ -1,0 +1,18 @@
+{
+ "built_from": {
+  "base_date": "2026-10-08",
+  "notice_date": "2026-10-13"
+ },
+ "sigungu": 16,
+ "building_rows": 296074,
+ "road_names": 9257,
+ "shard_kb_total": 9951.3,
+ "results": {
+  "도로명 건물 일치": 296074,
+  "범위: 같은 우편번호": 296073,
+  "지번 건물 일치": 296074,
+  "도로명 일치 중 우편번호 둘 이상": 26,
+  "범위: 후보 여럿(정답 포함)": 1
+ },
+ "jibun_range_unmatched_rows": 0
+}

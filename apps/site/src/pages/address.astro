@@ -1,0 +1,166 @@
+---
+import SiteLayout from '~/layouts/SiteLayout.astro';
+import Notice from '~/components/Notice.astro';
+import { load } from '~/lib/data';
+const { zips, sidos } = load();
+const zipList = [...zips.keys()];
+const examples = ['분당구 불정로 6', '분당구 구미동 123-4', '대전 유성구 대학로 99', '세종 금송로 625', '분당구 판교역로 166'];
+const areas = sidos.map((s) => (s.code === '41' ? '경기도(성남·수원·용인)' : s.name)).join(', ');
+---
+
+<SiteLayout metadata={{ title: '주소로 우편번호 찾기' }}>
+  <section class="max-w-3xl mx-auto px-4 sm:px-6 py-10">
+    <h1 class="text-3xl font-bold">주소로 우편번호 찾기</h1>
+    <p class="mt-2 text-muted">도로명주소(도로명+건물번호), 지번주소(동+번지), 건물명으로 5자리 우편번호를 찾습니다.</p>
+    <form id="aform" class="mt-6" role="search" onsubmit="return false">
+      <label for="aq" class="sr-only">주소</label>
+      <input
+        id="aq"
+        type="search"
+        autocomplete="off"
+        inputmode="search"
+        placeholder="예: 분당구 불정로 6 · 구미동 123-4 · 분당구 아이파크"
+        class="w-full rounded-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-5 py-3.5 text-base focus:outline-none focus:ring-2 focus:ring-primary"
+      />
+    </form>
+    <p class="mt-3 text-sm text-muted">
+      예시:
+      {
+        examples.map((e) => (
+          <button type="button" data-ex={e} class="ml-1 mt-1 rounded-full border border-gray-300 dark:border-slate-600 px-3 py-1 text-xs hover:border-primary">
+            {e}
+          </button>
+        ))
+      }
+    </p>
+    <p id="astatus" class="mt-4 text-sm text-muted" aria-live="polite"></p>
+    <ul id="aresults" class="mt-2 space-y-3"></ul>
+    <noscript><p class="mt-4 text-sm">주소 검색에는 자바스크립트가 필요합니다. <a href="/sido" class="text-link underline">지역별 목록</a>에서 찾아보세요.</p></noscript>
+
+    <div class="mt-10">
+      <Notice title="결과 읽는 법">
+        <ul class="list-disc pl-5 space-y-1">
+          <li><strong>건물 일치</strong>: 우체국 우편번호 DB에 같은 도로명·번호(또는 지번)의 건물이 있습니다.</li>
+          <li><strong>범위 기준</strong>: 그 번호의 건물은 DB에 없고, 우체국이 참고자료로 내는 범위주소의 범위 안에 있습니다. 새 건물이나 아직 등록되지 않은 주소일 수 있어 참고로만 보세요.</li>
+          <li>한 번지에 우편번호가 둘 이상이면 모두 보여 줍니다. 건물에 따라 다릅니다.</li>
+          <li>시군구를 넣으면 더 빨리 좁혀집니다. 도로명은 “불정로6번길”처럼 이름 그대로 넣어 주세요.</li>
+          <li>건물명 검색은 시군구를 함께 넣어야 하며, DB의 건물명(주로 공동주택·상가 이름)만 찾습니다.</li>
+        </ul>
+        <p class="mt-2">수록 지역(시험판): {areas}. 기준일은 <a href="/data" class="underline">데이터 안내</a>를 확인하세요. 값은 참고용이며 공식 확인은 우체국 및 도로명주소 안내시스템에서 해 주세요.</p>
+      </Notice>
+    </div>
+  </section>
+  <script type="application/json" id="zipset" set:html={JSON.stringify(zipList)} />
+</SiteLayout>
+
+<script>
+  import { plan, searchShards } from '~/lib/addr';
+  import type { Names, Shard, Hit, Level } from '~/lib/addr';
+
+  const input = document.getElementById('aq') as HTMLInputElement;
+  const list = document.getElementById('aresults') as HTMLUListElement;
+  const status = document.getElementById('astatus') as HTMLElement;
+  let zipSet = new Set<string>();
+  try {
+    zipSet = new Set(JSON.parse(document.getElementById('zipset')!.textContent || '[]'));
+  } catch {}
+
+  let namesP: Promise<Names> | null = null;
+  const shardP = new Map<string, Promise<Shard>>();
+  const getNames = () => (namesP ??= fetch('/addr/names.json').then((r) => { if (!r.ok) throw new Error('names'); return r.json(); }));
+  const getShard = (c: string) => {
+    if (!shardP.has(c)) shardP.set(c, fetch(`/addr/${c}.json`).then((r) => { if (!r.ok) throw new Error(c); return r.json(); }));
+    return shardP.get(c)!;
+  };
+
+  const BADGE: Record<Level, [string, string]> = {
+    exact: ['건물 일치', 'bg-green-100 text-green-900 dark:bg-green-900/30 dark:text-green-200'],
+    name: ['건물명 일치', 'bg-green-100 text-green-900 dark:bg-green-900/30 dark:text-green-200'],
+    range: ['범위 기준', 'bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200'],
+    road: ['도로 요약', 'bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-200'],
+    area: ['동 안내', 'bg-gray-100 text-gray-800 dark:bg-slate-800 dark:text-slate-200'],
+  };
+
+  function el(tag: string, cls: string, text?: string) {
+    const e = document.createElement(tag);
+    e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function card(h: Hit) {
+    const li = el('li', 'rounded-lg border border-gray-200 dark:border-slate-700 p-4');
+    const top = el('div', 'flex flex-wrap items-center gap-3');
+    if (h.zip) {
+      if (zipSet.has(h.zip)) {
+        const a = el('a', 'text-2xl font-bold tabular-nums text-link hover:underline', h.zip) as HTMLAnchorElement;
+        a.href = `/zip/${h.zip}`;
+        top.append(a);
+      } else top.append(el('span', 'text-2xl font-bold tabular-nums', h.zip));
+    }
+    const [label, cls] = BADGE[h.level];
+    top.append(el('span', `rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`, label));
+    li.append(top, el('p', 'mt-1.5', h.title));
+    if (h.sub) li.append(el('p', 'mt-0.5 text-sm text-muted', h.sub));
+    const links = el('p', 'mt-2 text-sm flex flex-wrap gap-x-4 gap-y-1');
+    if (h.zip && zipSet.has(h.zip)) {
+      const a = el('a', 'text-link hover:underline', '이 우편번호의 지도·구성 보기') as HTMLAnchorElement;
+      a.href = `/zip/${h.zip}`;
+      links.append(a);
+    }
+    if (h.emd) {
+      const a = el('a', 'text-link hover:underline', '읍면동 보기') as HTMLAnchorElement;
+      a.href = `/emd/${h.emd}`;
+      links.append(a);
+    }
+    if (links.childElementCount) li.append(links);
+    return li;
+  }
+
+  let seq = 0;
+  async function run() {
+    const q = input.value.trim();
+    const my = ++seq;
+    list.innerHTML = '';
+    if (!q) { status.textContent = ''; return; }
+    try {
+      const names = await getNames();
+      const pl = plan(q, names);
+      if (!pl.codes.length) { if (my === seq) status.textContent = pl.message || '도로명이나 동 이름을 입력해 주세요.'; return; }
+      status.textContent = '찾는 중…';
+      const shards = await Promise.all(pl.codes.map(getShard));
+      if (my !== seq) return;
+      const out = searchShards(pl.parsed, shards);
+      list.innerHTML = '';
+      if (!out.hits.length) {
+        status.textContent = '해당하는 주소를 찾지 못했습니다. 도로명·번호를 확인하거나, 지번으로도 찾아 보세요.';
+        return;
+      }
+      const hits = out.hits.slice(0, 30);
+      status.textContent = `${out.hits.length}건${out.hits.length > 30 ? ' 중 30건' : ''}` + (out.notes.length ? ` · ${out.notes[0]}` : '');
+      hits.forEach((h) => list.append(card(h)));
+    } catch {
+      if (my === seq) status.textContent = '주소 색인을 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.';
+    }
+  }
+
+  let timer: number | undefined;
+  input.addEventListener('input', () => {
+    const u = new URL(location.href);
+    if (input.value) u.searchParams.set('q', input.value);
+    else u.searchParams.delete('q');
+    history.replaceState(null, '', u);
+    clearTimeout(timer);
+    timer = window.setTimeout(run, 250);
+  });
+  document.querySelectorAll<HTMLButtonElement>('button[data-ex]').forEach((b) =>
+    b.addEventListener('click', () => {
+      input.value = b.dataset.ex || '';
+      input.dispatchEvent(new Event('input'));
+      input.focus();
+    })
+  );
+  const q0 = new URL(location.href).searchParams.get('q');
+  if (q0) { input.value = q0; run(); }
+  input.focus();
+</script>

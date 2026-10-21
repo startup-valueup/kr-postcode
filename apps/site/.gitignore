@@ -28,3 +28,4 @@ pnpm-workspace.yaml
 .astro
 # 생성물: 검색 색인 (npm run sync 가 data/processed 에서 복사)
 public/zip_index.json
+public/addr/
