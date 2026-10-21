@@ -1,0 +1,40 @@
+---
+import SiteLayout from '~/layouts/SiteLayout.astro';
+import Crumbs from '~/components/Crumbs.astro';
+import { load, num } from '~/lib/data';
+
+export function getStaticPaths() {
+  return load().sidos.map((s) => ({ params: { code: s.code }, props: { code: s.code } }));
+}
+const { sidos } = load();
+const sido = sidos.find((s) => s.code === Astro.props.code)!;
+---
+
+<SiteLayout metadata={{ title: `${sido.name} 우편번호` }}>
+  <section class="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+    <Crumbs items={[{ text: '홈', href: '/' }, { text: '지역별', href: '/sido' }, { text: sido.name }]} />
+    <h1 class="mt-3 text-3xl font-bold">{sido.name} 우편번호</h1>
+    {sido.code === '41' && <p class="mt-2 text-sm text-muted">시험판에는 성남시·수원시·용인시만 수록되어 있습니다.</p>}
+    <div class="mt-6 space-y-6">
+      {
+        sido.cities.map((c) => (
+          <div>
+            {(c.sigungu.length > 1 || c.name !== c.sigungu[0].name) && <h2 class="text-lg font-semibold">{c.name}</h2>}
+            <ul class="mt-2 grid gap-3 sm:grid-cols-2">
+              {c.sigungu.map((g) => (
+                <li>
+                  <a href={`/sigungu/${g.code}`} class="block rounded-lg border border-gray-200 dark:border-slate-700 p-4 hover:border-primary transition">
+                    <p class="font-semibold">{g.name}</p>
+                    <p class="text-sm text-muted mt-1">
+                      우편번호 {num(g.n_zip)}개 · 주소 {num(g.n_addr)}건
+                    </p>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+</SiteLayout>

@@ -1,0 +1,31 @@
+---
+import Layout from '~/layouts/Layout.astro';
+import Header from '~/components/widgets/Header.astro';
+import Footer from '~/components/widgets/Footer.astro';
+import Announcement from '~/components/widgets/Announcement.astro';
+import { headerData, footerData } from '~/navigation';
+import { load } from '~/lib/data';
+import type { MetaData } from '~/types';
+
+export interface Props {
+  metadata?: MetaData;
+}
+const { metadata } = Astro.props;
+const { meta } = load();
+const regions = meta.regions.map((r: any) => (r.sigungu_prefix ? r.sigungu_prefix.join('·') : r.sido)).join(' · ');
+---
+
+<Layout metadata={metadata}>
+  <Announcement
+    slot="announcement"
+    badge="시험판"
+    text={`수록 지역: ${regions} (개발 중 · 전국 데이터 아님) »`}
+    href="/data"
+    showStars={false}
+  />
+  <Header {...headerData} isSticky showToggleTheme />
+  <main class="flex-1">
+    <slot />
+  </main>
+  <Footer {...footerData} />
+</Layout>

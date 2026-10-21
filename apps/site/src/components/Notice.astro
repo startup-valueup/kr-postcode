@@ -1,0 +1,12 @@
+---
+// 데이터 한계·해석 안내 상자
+export interface Props {
+  title?: string;
+}
+const { title = '데이터 안내' } = Astro.props;
+---
+
+<aside class="rounded-lg border border-amber-300/60 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700/40 p-4 text-sm leading-relaxed">
+  <p class="font-semibold mb-1">{title}</p>
+  <div class="text-default/90"><slot /></div>
+</aside>

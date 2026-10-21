@@ -1,0 +1,51 @@
+---
+import SiteLayout from '~/layouts/SiteLayout.astro';
+import Crumbs from '~/components/Crumbs.astro';
+import { load, num } from '~/lib/data';
+const { meta } = load();
+const c = meta.counts;
+---
+
+<SiteLayout metadata={{ title: '데이터 출처·기준일·한계' }}>
+  <section class="max-w-3xl mx-auto px-4 sm:px-6 py-10 prose dark:prose-invert prose-a:text-link max-w-none">
+    <div class="not-prose"><Crumbs items={[{ text: '홈', href: '/' }, { text: '데이터 안내' }]} /></div>
+    <h1>데이터 출처·기준일·한계</h1>
+
+    <h2>출처와 기준일</h2>
+    <table>
+      <thead><tr><th>자료</th><th>기준</th><th>용도</th></tr></thead>
+      <tbody>
+        <tr><td>우체국 우편번호 DB(지역별 주소)</td><td>고시 {meta.notice_date} · 기준 {meta.base_date}</td><td>우편번호별 주소·도로·읍면동 구성</td></tr>
+        <tr><td>국가기초구역 도형</td><td>{meta.zone_version}</td><td>경계 지도, 면적</td></tr>
+        <tr><td>범위주소·사서함·변경분 DB</td><td>고시 {meta.notice_date}</td><td>검증용 대조 (화면에는 직접 쓰지 않음)</td></tr>
+      </tbody>
+    </table>
+
+    <h2>현재 수록 범위 (시험판)</h2>
+    <p>
+      세종특별자치시, 대전광역시, 경기도 성남시·수원시·용인시만 수록되어 있습니다. 우편번호 {num(c.zips_total)}개
+      (주소 보유 {num(c.zips_with_address)}개, 도형만 있는 번호 {num(c.zips_total - c.zips_with_address)}개), 주소 {num(c.address_rows)}건을 집계했습니다.
+      전국 데이터는 준비 중입니다.
+    </p>
+
+    <h2>정확도 등급</h2>
+    <ul>
+      <li><strong>정확</strong>: 주소·좌표 같은 원자료를 직접 집계한 값 (현재 화면의 모든 값)</li>
+      <li><strong>추정</strong>: 읍면동·집계구 통계를 우편번호로 배분한 값 (통계가 추가되면 사용)</li>
+      <li><strong>참고</strong>: 상위 지역 값을 준용한 값</li>
+    </ul>
+
+    <h2>읽을 때 유의할 점</h2>
+    <ul>
+      <li>비율은 <strong>주소(건물) 건수</strong> 기준입니다. 건물의 크기, 세대수, 인구는 반영되지 않습니다.</li>
+      <li>우편번호는 시·군·구 안에 있는 경우가 대부분이지만, 읍·면·동은 자주 넘나듭니다. 시험판 범위에서 우편번호 중 읍면동에 걸친 비율은 세종 약 54%, 대전 약 21%, 성남·수원·용인 약 14%입니다.</li>
+      <li>우편번호 DB의 <code>행정동명</code>이 빈 주소가 있습니다(세종 약 55%). 법정동과 같다고 가정하지 않고 &lsquo;(미표기)&rsquo;로 표시합니다.</li>
+      <li>경계 도형은 약 2m로 단순화했고 번호마다 따로 단순화해 이웃 경계에 미세한 틈이나 겹침이 있을 수 있습니다.</li>
+      <li>기초구역 도형에는 있으나 주소가 없는 번호가 12개 있습니다. 이유는 확인하지 못했습니다.</li>
+      <li>기초구역 도형의 면적 속성이 실제 도형 면적과 다른 구역이 29개 있어, 화면의 면적은 도형에서 계산한 값입니다.</li>
+      <li>건물 번호까지 넣은 정확한 주소 → 우편번호 조회는 지원하지 않습니다.</li>
+    </ul>
+
+    <p class="text-sm">이 사이트는 공식 서비스가 아니며 값은 참고용입니다. 공식 확인은 우체국 및 도로명주소 안내시스템을 이용하세요.</p>
+  </section>
+</SiteLayout>

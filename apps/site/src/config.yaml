@@ -1,0 +1,58 @@
+site:
+  name: 한국 우편번호 (가칭)
+  # TODO: 도메인 확정 전 임시 값. 예약된 .example 도메인이라 실제 주소가 아님
+  site: 'https://kr-postcode.example'
+  base: '/'
+  trailingSlash: false
+
+# 개발 중에는 검색엔진 색인을 막는다 (공개 전환 시 index/follow를 true로)
+metadata:
+  title:
+    default: 한국 우편번호 (가칭)
+    template: '%s — 한국 우편번호'
+  description: 우편번호(기초구역번호)별 지역 구성과 경계를 보여 주는 검색 사이트 (시험판)
+  robots:
+    index: false
+    follow: false
+  openGraph:
+    site_name: 한국 우편번호 (가칭)
+    type: website
+
+i18n:
+  language: ko
+  textDirection: ltr
+
+apps:
+  blog:
+    isEnabled: false
+    postsPerPage: 8
+    post:
+      isEnabled: false
+      permalink: '/%slug%'
+      robots:
+        index: false
+    list:
+      isEnabled: false
+      pathname: 'blog'
+      robots:
+        index: false
+    category:
+      isEnabled: false
+      pathname: 'category'
+      robots:
+        index: false
+    tag:
+      isEnabled: false
+      pathname: 'tag'
+      robots:
+        index: false
+    isRelatedPostsEnabled: false
+    relatedPostsCount: 4
+
+analytics:
+  vendors:
+    googleAnalytics:
+      id: null
+
+ui:
+  theme: 'system'

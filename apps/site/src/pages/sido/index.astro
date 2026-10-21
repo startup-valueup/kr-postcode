@@ -1,0 +1,27 @@
+---
+import SiteLayout from '~/layouts/SiteLayout.astro';
+import Crumbs from '~/components/Crumbs.astro';
+import { load, num } from '~/lib/data';
+const { sidos } = load();
+---
+
+<SiteLayout metadata={{ title: '지역별 우편번호' }}>
+  <section class="max-w-4xl mx-auto px-4 sm:px-6 py-10">
+    <Crumbs items={[{ text: '홈', href: '/' }, { text: '지역별' }]} />
+    <h1 class="mt-3 text-3xl font-bold">지역별 우편번호</h1>
+    <ul class="mt-6 grid gap-3 sm:grid-cols-2">
+      {
+        sidos.map((s) => (
+          <li>
+            <a href={`/sido/${s.code}`} class="block rounded-lg border border-gray-200 dark:border-slate-700 p-4 hover:border-primary transition">
+              <p class="font-semibold">{s.name}</p>
+              <p class="text-sm text-muted mt-1">
+                {s.sigungu.length}개 시·군·구 · 우편번호 {num(s.sigungu.reduce((a, g) => a + g.n_zip, 0))}개
+              </p>
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </section>
+</SiteLayout>

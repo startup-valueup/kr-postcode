@@ -1,0 +1,27 @@
+---
+export interface Props {
+  items: { text: string; href?: string }[];
+}
+const { items } = Astro.props;
+---
+
+<nav aria-label="경로" class="text-sm text-muted">
+  <ol class="flex flex-wrap items-center gap-x-2 gap-y-1">
+    {
+      items.map((it, i) => (
+        <li class="flex items-center gap-2">
+          {i > 0 && <span aria-hidden="true">›</span>}
+          {it.href ? (
+            <a href={it.href} class="hover:underline">
+              {it.text}
+            </a>
+          ) : (
+            <span class="text-default" aria-current="page">
+              {it.text}
+            </span>
+          )}
+        </li>
+      ))
+    }
+  </ol>
+</nav>

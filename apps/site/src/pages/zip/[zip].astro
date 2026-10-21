@@ -1,0 +1,168 @@
+---
+import SiteLayout from '~/layouts/SiteLayout.astro';
+import Crumbs from '~/components/Crumbs.astro';
+import ZipMap from '~/components/ZipMap.astro';
+import ShareBars from '~/components/ShareBars.astro';
+import Notice from '~/components/Notice.astro';
+import { load, num, pct, fmtDate } from '~/lib/data';
+
+export function getStaticPaths() {
+  return [...load().zips.keys()].map((zip) => ({ params: { zip }, props: { zip } }));
+}
+const { zips, sigunguByCode, emdByCode, meta } = load();
+const z = zips.get(Astro.props.zip)!;
+const sg = z.primary_sigungu.code ? sigunguByCode.get(z.primary_sigungu.code) : undefined;
+const sigunguName = z.primary_sigungu.name;
+const primaryEmd = z.emd?.[0];
+const emdNames = z.emd ? z.emd.slice(0, 3).map((e) => e.name).join(' · ') : '';
+const crumbs = [
+  { text: '홈', href: '/' },
+  { text: '지역별', href: '/sido' },
+  ...(sg ? [{ text: sg.sidoName, href: `/sido/${sg.sidoCode}` }, { text: sg.name, href: `/sigungu/${sg.code}` }] : [{ text: z.sido }, { text: sigunguName }]),
+  { text: z.zip },
+];
+// 같은 주 읍면동의 다른 우편번호
+const siblings = primaryEmd?.code
+  ? (emdByCode.get(primaryEmd.code)?.zips ?? []).filter((s) => s.zip !== z.zip).slice(0, 12)
+  : [];
+const title = `${z.zip} ${sigunguName}${primaryEmd ? ' ' + primaryEmd.name : ''}`;
+const multiEmd = (z.emd?.length ?? 0) > 1;
+const jsonld = {
+  '@context': 'https://schema.org',
+  '@type': 'Place',
+  name: `우편번호 ${z.zip}`,
+  address: { '@type': 'PostalAddress', postalCode: z.zip, addressRegion: z.sido, addressLocality: sigunguName, addressCountry: 'KR' },
+  ...(z.geo ? { geo: { '@type': 'GeoCoordinates', longitude: z.geo.center[0], latitude: z.geo.center[1] } } : {}),
+};
+---
+
+<SiteLayout metadata={{ title: `${title} 우편번호`, description: `우편번호 ${z.zip}: ${z.sido} ${sigunguName} ${emdNames} 일대. 주소 ${num(z.n_addr)}건 기준 지역 구성과 경계.` }}>
+  <Fragment slot="head">
+    <script type="application/ld+json" set:html={JSON.stringify(jsonld)} />
+  </Fragment>
+  <section class="max-w-5xl mx-auto px-4 sm:px-6 py-10">
+    <Crumbs items={crumbs} />
+    <div class="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+      <h1 class="text-4xl font-bold tabular-nums">{z.zip}</h1>
+      <p class="text-lg text-muted">{z.sido} {sigunguName}{emdNames ? ` ${emdNames}` : ''}{multiEmd && (z.emd!.length > 3) ? ' 외' : ''}</p>
+    </div>
+    <p class="mt-2 flex flex-wrap gap-2 text-xs">
+      <span class="rounded-full bg-green-100 dark:bg-green-900/30 text-green-900 dark:text-green-200 px-2.5 py-1 font-medium">정확도: {z.grade} (주소 기준)</span>
+      <span class="rounded-full bg-gray-100 dark:bg-slate-800 px-2.5 py-1">우편번호 DB {meta.notice_date} 고시 · 기준 {meta.base_date}</span>
+      <span class="rounded-full bg-gray-100 dark:bg-slate-800 px-2.5 py-1">기초구역 도형 {meta.zone_version}</span>
+    </p>
+
+    {
+      !z.has_address && (
+        <div class="mt-6">
+          <Notice title="주소가 없는 구역">
+            이 번호는 기초구역 도형에는 있지만 우편번호 DB·범위주소·사서함·변경분 어디에도 주소가 없습니다. 지도와 면적만 제공하며 지역 구성은 알 수 없습니다.
+          </Notice>
+        </div>
+      )
+    }
+
+    <dl class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+        <dt class="text-xs text-muted">주소(건물) 수</dt>
+        <dd class="text-2xl font-bold tabular-nums">{num(z.n_addr)}</dd>
+      </div>
+      <div class="rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+        <dt class="text-xs text-muted">도로 수</dt>
+        <dd class="text-2xl font-bold tabular-nums">{z.n_road !== undefined ? num(z.n_road) : '–'}</dd>
+      </div>
+      <div class="rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+        <dt class="text-xs text-muted">면적</dt>
+        <dd class="text-2xl font-bold tabular-nums">{z.geo ? `${z.geo.area_km2 < 1 ? z.geo.area_km2.toFixed(3) : z.geo.area_km2.toFixed(2)} ㎢` : '–'}</dd>
+      </div>
+      <div class="rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+        <dt class="text-xs text-muted">걸친 읍면동</dt>
+        <dd class="text-2xl font-bold tabular-nums">{z.emd ? `${z.emd.length}곳` : '–'}</dd>
+      </div>
+    </dl>
+
+    {z.geo && <div class="mt-8"><ZipMap target={z} label={`우편번호 ${z.zip} 경계 지도`} /></div>}
+
+    {
+      z.has_address && (
+        <div class="mt-10 grid gap-10 md:grid-cols-2">
+          <div>
+            <h2 class="text-xl font-bold">읍·면·동 구성</h2>
+            <p class="mt-1 text-xs text-muted">법정동 기준, 주소(건물) 건수 비율</p>
+            <div class="mt-3">
+              <ShareBars items={z.emd!.map((e) => ({ name: e.name, n: e.n, share: e.share, href: e.code ? `/emd/${e.code}` : undefined, sub: e.hdong && e.hdong[0] && e.hdong[0] !== '(미표기)' ? `행정동 ${e.hdong.filter((h) => h !== '(미표기)').join('·')}` : undefined }))} />
+            </div>
+          </div>
+          <div>
+            <h2 class="text-xl font-bold">행정동 구성</h2>
+            <p class="mt-1 text-xs text-muted">
+              행정동명이 비어 있는 주소는 &lsquo;(미표기)&rsquo;로 따로 표시합니다{z.flags && z.flags.hdong_blank_share > 0 ? ` (이 번호는 ${pct(z.flags.hdong_blank_share)})` : ''}.
+            </p>
+            <div class="mt-3"><ShareBars items={z.hdong!} /></div>
+          </div>
+          {z.sigungu!.length > 1 && (
+            <div>
+              <h2 class="text-xl font-bold">시·군·구 구성</h2>
+              <p class="mt-1 text-xs text-muted">이 번호는 여러 시·군·구에 걸쳐 있습니다.</p>
+              <div class="mt-3">
+                <ShareBars items={z.sigungu!.map((s) => ({ name: s.name, n: s.n, share: s.share, href: s.code ? `/sigungu/${s.code}` : undefined }))} />
+              </div>
+            </div>
+          )}
+          <div>
+            <h2 class="text-xl font-bold">대표 도로</h2>
+            <p class="mt-1 text-xs text-muted">주소(건물)가 많은 순 상위 {z.roads!.length}개</p>
+            <ul class="mt-3 flex flex-wrap gap-2">
+              {z.roads!.map((r) => (
+                <li class="rounded-full border border-gray-200 dark:border-slate-700 px-3 py-1 text-sm">
+                  {r.name} <span class="text-xs text-muted tabular-nums">{num(r.n)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )
+    }
+
+    {
+      siblings.length > 0 && primaryEmd && (
+        <div class="mt-10">
+          <h2 class="text-xl font-bold">
+            같은 {primaryEmd.name}의 다른 우편번호
+          </h2>
+          <ul class="mt-3 flex flex-wrap gap-2">
+            {siblings.map((s) => (
+              <li>
+                <a href={`/zip/${s.zip}`} class="inline-block rounded-full border border-gray-200 dark:border-slate-700 px-3 py-1 text-sm tabular-nums hover:border-primary">
+                  {s.zip}
+                </a>
+              </li>
+            ))}
+          </ul>
+          <p class="mt-2 text-sm"><a href={`/emd/${primaryEmd.code}`} class="text-link hover:underline">{primaryEmd.name} 전체 보기 →</a></p>
+        </div>
+      )
+    }
+
+    {
+      z.zone && (
+        <p class="mt-10 text-sm text-muted">
+          경계 이력:{' '}
+          {z.zone.created_or_changed || z.zone.reason
+            ? `${fmtDate(z.zone.created_or_changed ?? '')} ${z.zone.reason ?? ''}${z.zone.notified ? ` (고시 ${fmtDate(z.zone.notified)})` : ''}`
+            : '도형 속성에 기록된 이력이 없습니다.'}
+        </p>
+      )
+    }
+
+    <div class="mt-8">
+      <Notice>
+        <ul class="list-disc pl-5 space-y-1">
+          <li>비율은 우체국 우편번호 DB의 <strong>주소(건물) 건수</strong> 기준이며 인구·세대수·면적 비율이 아닙니다.</li>
+          <li>경계는 국가기초구역 도형을 약 2m로 단순화한 것이라 실제 경계와 미세한 차이가 있을 수 있습니다.</li>
+          <li>값은 참고용입니다. 공식 확인은 우체국과 도로명주소 안내시스템을 이용하세요. <a href="/data" class="text-link underline">출처와 한계</a></li>
+        </ul>
+      </Notice>
+    </div>
+  </section>
+</SiteLayout>

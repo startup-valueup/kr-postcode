@@ -1,0 +1,53 @@
+---
+// 비율 막대 목록. 비율은 주소(건물) 건수 기준이다.
+import { pct, num } from '~/lib/data';
+
+export interface Item {
+  name: string;
+  n: number;
+  share: number;
+  href?: string;
+  sub?: string;
+}
+export interface Props {
+  items: Item[];
+  limit?: number;
+}
+const { items, limit = 12 } = Astro.props;
+const shown = items.slice(0, limit);
+const rest = items.slice(limit);
+---
+
+<ul class="space-y-2">
+  {
+    shown.map((it) => (
+      <li>
+        <div class="flex items-baseline justify-between gap-3 text-sm">
+          <span class="min-w-0 truncate">
+            {it.href ? (
+              <a href={it.href} class="font-medium hover:underline text-link">
+                {it.name}
+              </a>
+            ) : (
+              <span class="font-medium">{it.name}</span>
+            )}
+            {it.sub && <span class="ml-2 text-xs text-muted">{it.sub}</span>}
+          </span>
+          <span class="shrink-0 tabular-nums text-muted">
+            {pct(it.share)} · {num(it.n)}건
+          </span>
+        </div>
+        <div class="mt-1 h-2 rounded-full bg-gray-100 dark:bg-slate-800" role="presentation">
+          <div class="h-2 rounded-full bg-primary" style={`width:${Math.max(1.5, Math.round(it.share * 1000) / 10)}%`} />
+        </div>
+      </li>
+    ))
+  }
+  {
+    rest.length > 0 && (
+      <li class="text-xs text-muted">
+        그 밖에 {rest.length}곳 ({pct(rest.reduce((a, b) => a + b.share, 0))}, {num(rest.reduce((a, b) => a + b.n, 0))}건)
+      </li>
+    )
+  }
+</ul>

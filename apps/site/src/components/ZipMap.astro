@@ -1,0 +1,100 @@
+---
+// 우편번호 경계 SVG 지도. 배경지도 없이 경계만 그린다 (배경지도는 방식 확정 후 추가).
+// target 이 있으면 그 번호를 강조하고 주변 번호를 링크로 보여 주고, 없으면 items 전체를 칠한다.
+import { makeProjector, ringsToPath, load, num } from '~/lib/data';
+import type { ZipRec } from '~/lib/data';
+
+export interface Props {
+  target?: ZipRec;
+  items?: ZipRec[];
+  width?: number;
+  label?: string;
+}
+const { target, items, width = 720, label = '우편번호 경계 지도' } = Astro.props;
+const { zips } = load();
+
+let drawn: { z: ZipRec; main: boolean; d?: string }[] = [];
+let bbox: [number, number, number, number];
+
+if (target?.geo) {
+  const [w, s, e, n] = target.geo.bbox;
+  const mx = Math.max(e - w, (n - s) * 0.8) * 0.9;
+  const my = mx * 0.8;
+  bbox = [w - mx, s - my, e + mx, n + my];
+  const cx = (w + e) / 2;
+  const cy = (s + n) / 2;
+  const near: { z: ZipRec; dist: number }[] = [];
+  for (const z of zips.values()) {
+    if (!z.geo || z.zip === target.zip) continue;
+    const [zw, zs, ze, zn] = z.geo.bbox;
+    if (ze < bbox[0] || zw > bbox[2] || zn < bbox[1] || zs > bbox[3]) continue;
+    near.push({ z, dist: Math.hypot((zw + ze) / 2 - cx, (zs + zn) / 2 - cy) });
+  }
+  near.sort((a, b) => a.dist - b.dist);
+  drawn = [...near.slice(0, 40).map((x) => ({ z: x.z, main: false })), { z: target, main: true }];
+} else {
+  const list = (items ?? []).filter((z) => z.geo);
+  const bb = list.reduce(
+    (a, z) => [Math.min(a[0], z.geo!.bbox[0]), Math.min(a[1], z.geo!.bbox[1]), Math.max(a[2], z.geo!.bbox[2]), Math.max(a[3], z.geo!.bbox[3])],
+    [999, 999, -999, -999]
+  ) as [number, number, number, number];
+  bbox = bb;
+  drawn = list.map((z) => ({ z, main: false }));
+}
+
+const { proj, height } = makeProjector(bbox, width);
+drawn = drawn.map((x) => ({ ...x, d: ringsToPath(x.z.geo!.polygon.coordinates, x.z.geo!.polygon.type, proj) }));
+const maxN = Math.max(1, ...drawn.map((x) => x.z.n_addr));
+const shade = (n: number) => (target ? undefined : Math.round(12 + (Math.sqrt(n / maxN)) * 50));
+---
+
+<figure class="my-0">
+  <svg
+    viewBox={`0 0 ${width} ${height}`}
+    class="w-full h-auto max-h-[70vh] rounded-lg border border-gray-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900"
+    role="img"
+    aria-label={label}
+  >
+    {
+      drawn
+        .filter((x) => !x.main)
+        .map((x) => (
+          <a href={`/zip/${x.z.zip}`}>
+            <path
+              d={x.d}
+              class="stroke-slate-400 dark:stroke-slate-500 hover:stroke-primary"
+              style={shade(x.z.n_addr) !== undefined ? `fill: color-mix(in srgb, var(--aw-color-primary) ${shade(x.z.n_addr)}%, transparent)` : undefined}
+              fill={shade(x.z.n_addr) === undefined ? 'currentColor' : undefined}
+              fill-opacity={shade(x.z.n_addr) === undefined ? '0.08' : undefined}
+              stroke-width="0.8"
+              vector-effect="non-scaling-stroke"
+            >
+              <title>{`${x.z.zip} · 주소 ${num(x.z.n_addr)}건`}</title>
+            </path>
+          </a>
+        ))
+    }
+    {
+      drawn
+        .filter((x) => x.main)
+        .map((x) => (
+          <path
+            d={x.d}
+            class="fill-primary/30 stroke-primary"
+            stroke-width="2.2"
+            vector-effect="non-scaling-stroke"
+            stroke-linejoin="round"
+          >
+            <title>{`${x.z.zip} (이 우편번호)`}</title>
+          </path>
+        ))
+    }
+  </svg>
+  <figcaption class="mt-2 text-xs text-muted">
+    {
+      target
+        ? '진한 파란색이 이 우편번호의 경계, 회색은 인접 우편번호(누르면 이동). 배경지도는 아직 없고, 경계는 약 2m로 단순화한 도형입니다.'
+        : '색이 진할수록 주소(건물) 수가 많은 우편번호입니다. 각 구역을 누르면 상세 페이지로 이동합니다. 경계는 약 2m로 단순화한 도형입니다.'
+    }
+  </figcaption>
+</figure>

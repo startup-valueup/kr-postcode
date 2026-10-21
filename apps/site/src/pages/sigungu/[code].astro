@@ -1,0 +1,87 @@
+---
+import SiteLayout from '~/layouts/SiteLayout.astro';
+import Crumbs from '~/components/Crumbs.astro';
+import ZipMap from '~/components/ZipMap.astro';
+import Notice from '~/components/Notice.astro';
+import { load, num, pct } from '~/lib/data';
+
+export function getStaticPaths() {
+  return [...load().sigunguByCode.keys()].map((code) => ({ params: { code }, props: { code } }));
+}
+const { sigunguByCode, zips, emdList } = load();
+const sg = sigunguByCode.get(Astro.props.code)!;
+const rows = sg.zips.map((z) => zips.get(z)!).sort((a, b) => a.zip.localeCompare(b.zip));
+// 이 시군구에 걸친 번호 중 다른 시군구와 겹치는 것
+const multi = rows.filter((r) => r.flags?.multi_sigungu).length;
+const emds = emdList.filter((e) => e.sigungu_code === sg.code).sort((a, b) => b.n_addr - a.n_addr);
+// 지도에는 이 시군구가 대표(주 소속)인 번호 + 주소 없는 도형은 제외
+const mapItems = rows.filter((r) => r.geo);
+---
+
+<SiteLayout metadata={{ title: `${sg.name} 우편번호` }}>
+  <section class="max-w-5xl mx-auto px-4 sm:px-6 py-10">
+    <Crumbs items={[{ text: '홈', href: '/' }, { text: '지역별', href: '/sido' }, { text: sg.sidoName, href: `/sido/${sg.sidoCode}` }, { text: sg.name }]} />
+    <h1 class="mt-3 text-3xl font-bold">{sg.name} 우편번호</h1>
+    <p class="mt-2 text-muted">우편번호 {num(sg.n_zip)}개 · 주소(건물) {num(sg.n_addr)}건 · 읍면동 {num(emds.length)}곳</p>
+
+    <div class="mt-6">
+      <ZipMap items={mapItems} label={`${sg.name} 우편번호 경계 지도`} />
+    </div>
+
+    <div class="mt-10 grid gap-10 lg:grid-cols-[2fr_1fr]">
+      <div>
+        <h2 class="text-xl font-bold">우편번호 목록</h2>
+        <div class="mt-3 overflow-x-auto rounded-lg border border-gray-200 dark:border-slate-700">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 dark:bg-slate-800/60 text-left text-muted">
+              <tr>
+                <th class="px-3 py-2 font-medium">우편번호</th>
+                <th class="px-3 py-2 font-medium">주 읍면동</th>
+                <th class="px-3 py-2 font-medium text-right">비중</th>
+                <th class="px-3 py-2 font-medium text-right">주소 수</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200 dark:divide-slate-700">
+              {
+                rows.map((r) => (
+                  <tr class="hover:bg-gray-50 dark:hover:bg-slate-800/40">
+                    <td class="px-3 py-2 font-semibold tabular-nums">
+                      <a href={`/zip/${r.zip}`} class="text-link hover:underline">{r.zip}</a>
+                    </td>
+                    <td class="px-3 py-2">
+                      {r.emd?.[0]?.name}
+                      {(r.emd?.length ?? 0) > 1 && <span class="text-xs text-muted"> 외 {r.emd!.length - 1}곳</span>}
+                    </td>
+                    <td class="px-3 py-2 text-right tabular-nums text-muted">{r.emd?.[0] ? pct(r.emd[0].share) : ''}</td>
+                    <td class="px-3 py-2 text-right tabular-nums">{num(r.n_addr)}</td>
+                  </tr>
+                ))
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <h2 class="text-xl font-bold">읍·면·동</h2>
+        <ul class="mt-3 text-sm divide-y divide-gray-200 dark:divide-slate-700 rounded-lg border border-gray-200 dark:border-slate-700">
+          {
+            emds.slice(0, 60).map((e) => (
+              <li class="flex items-baseline justify-between gap-2 px-3 py-2">
+                <a href={`/emd/${e.code}`} class="text-link hover:underline truncate">{e.name}</a>
+                <span class="text-xs text-muted tabular-nums">{e.zips.length}개 번호</span>
+              </li>
+            ))
+          }
+        </ul>
+        {emds.length > 60 && <p class="mt-2 text-xs text-muted">주소가 많은 순 60곳만 표시합니다.</p>}
+      </div>
+    </div>
+
+    <div class="mt-10">
+      <Notice>
+        {multi > 0 && <>이 목록 중 {multi}개 번호는 다른 시·군·구에도 걸쳐 있습니다(구 경계 포함). </>}
+        &lsquo;주 읍면동&rsquo;은 번호에 속한 주소(건물) 수가 가장 많은 곳이며 비중은 주소 건수 기준입니다. 인구나 면적 비율이 아닙니다.
+      </Notice>
+    </div>
+  </section>
+</SiteLayout>

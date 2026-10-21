@@ -1,0 +1,116 @@
+---
+import SiteLayout from '~/layouts/SiteLayout.astro';
+import Notice from '~/components/Notice.astro';
+---
+
+<SiteLayout metadata={{ title: '검색' }}>
+  <section class="max-w-3xl mx-auto px-4 sm:px-6 py-10">
+    <h1 class="text-3xl font-bold">우편번호 검색</h1>
+    <form id="sform" class="mt-6" role="search" onsubmit="return false">
+      <label for="sq" class="sr-only">검색어</label>
+      <input
+        id="sq"
+        type="search"
+        autocomplete="off"
+        placeholder="우편번호(앞자리도 가능), 시군구·동 이름, 도로명"
+        class="w-full rounded-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-5 py-3.5 text-base focus:outline-none focus:ring-2 focus:ring-primary"
+      />
+    </form>
+    <p id="status" class="mt-3 text-sm text-muted" aria-live="polite">검색 색인을 불러오는 중…</p>
+    <ul id="results" class="mt-4 divide-y divide-gray-200 dark:divide-slate-700"></ul>
+    <noscript><p class="mt-4 text-sm">검색에는 자바스크립트가 필요합니다. <a href="/sido" class="text-link underline">지역별 목록</a>에서 찾아보세요.</p></noscript>
+    <div class="mt-8">
+      <Notice title="검색 범위">
+        우편번호, 시군구·읍면동 이름, 도로명으로 찾습니다. 건물 번호까지 넣은 정확한 주소 → 우편번호 조회는 아직 지원하지 않습니다.
+        수록 지역(시험판)에 없는 곳은 결과가 나오지 않습니다.
+      </Notice>
+    </div>
+  </section>
+</SiteLayout>
+
+<script>
+  type Row = { z: string; s: string; g: string; e: string; n: number; k: string };
+  const input = document.getElementById('sq') as HTMLInputElement;
+  const list = document.getElementById('results') as HTMLUListElement;
+  const status = document.getElementById('status') as HTMLElement;
+  let rows: Row[] = [];
+  let ready = false;
+
+  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+
+  function score(r: Row, q: string, tokens: string[]): number {
+    if (/^\d+$/.test(q)) {
+      if (r.z === q) return 1000;
+      return r.z.startsWith(q) ? 500 - (r.z.length - q.length) : -1;
+    }
+    const head = norm(`${r.s} ${r.g} ${r.e}`);
+    const all = head + ' ' + norm(r.k);
+    let sc = 0;
+    for (const t of tokens) {
+      if (head.includes(t)) sc += 10;
+      else if (all.includes(t)) sc += 3;
+      else return -1;
+    }
+    return sc + Math.min(r.n, 5000) / 5000;
+  }
+
+  function render() {
+    const q = norm(input.value);
+    list.innerHTML = '';
+    if (!ready) return;
+    if (!q) {
+      status.textContent = `${rows.length.toLocaleString('ko-KR')}개 우편번호에서 검색합니다.`;
+      return;
+    }
+    const tokens = q.split(' ');
+    const hits = rows
+      .map((r) => ({ r, sc: score(r, q, tokens) }))
+      .filter((x) => x.sc >= 0)
+      .sort((a, b) => b.sc - a.sc)
+      .slice(0, 50);
+    status.textContent = hits.length ? `${hits.length}${hits.length === 50 ? '개 이상' : '개'} 결과` : '결과가 없습니다. 수록 지역을 확인해 보세요.';
+    for (const { r } of hits) {
+      const li = document.createElement('li');
+      const a = document.createElement('a');
+      a.href = `/zip/${r.z}`;
+      a.className = 'flex items-baseline gap-4 py-3 px-1 hover:bg-gray-50 dark:hover:bg-slate-800/60 rounded';
+      const zip = document.createElement('span');
+      zip.className = 'text-xl font-bold tabular-nums text-link';
+      zip.textContent = r.z;
+      const body = document.createElement('span');
+      body.className = 'min-w-0';
+      const l1 = document.createElement('span');
+      l1.className = 'block truncate';
+      l1.textContent = [r.s, r.g, r.e].filter(Boolean).join(' ');
+      const l2 = document.createElement('span');
+      l2.className = 'block text-xs text-muted';
+      l2.textContent = r.n ? `주소 ${r.n.toLocaleString('ko-KR')}건` : '주소 없음(도형만 존재)';
+      body.append(l1, l2);
+      a.append(zip, body);
+      li.append(a);
+      list.append(li);
+    }
+  }
+
+  input.addEventListener('input', () => {
+    const u = new URL(location.href);
+    if (input.value) u.searchParams.set('q', input.value);
+    else u.searchParams.delete('q');
+    history.replaceState(null, '', u);
+    render();
+  });
+
+  fetch('/zip_index.json')
+    .then((r) => r.json())
+    .then((data) => {
+      rows = data;
+      ready = true;
+      const q = new URL(location.href).searchParams.get('q');
+      if (q) input.value = q;
+      render();
+    })
+    .catch(() => {
+      status.textContent = '검색 색인을 불러오지 못했습니다. 지역별 목록을 이용해 주세요.';
+    });
+  input.focus();
+</script>

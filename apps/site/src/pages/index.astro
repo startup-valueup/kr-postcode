@@ -1,0 +1,71 @@
+---
+import SiteLayout from '~/layouts/SiteLayout.astro';
+import { load, num } from '~/lib/data';
+const { meta, sidos } = load();
+const c = meta.counts;
+---
+
+<SiteLayout metadata={{ title: '한국 우편번호 (가칭)', ignoreTitleTemplate: true }}>
+  <section class="max-w-4xl mx-auto px-4 sm:px-6 pt-12 pb-8 md:pt-20">
+    <p class="inline-block rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-900 dark:text-amber-200 text-xs font-semibold px-3 py-1">
+      시험판 · 일부 지역만 수록
+    </p>
+    <h1 class="mt-4 text-4xl md:text-5xl font-bold tracking-tight">우편번호로 보는 우리 동네</h1>
+    <p class="mt-4 text-lg text-muted">
+      5자리 우편번호(기초구역번호)가 어떤 시·군·구와 읍·면·동에 걸쳐 있는지, 경계가 어디까지인지 한 번에 확인합니다.
+    </p>
+    <form action="/search" method="get" class="mt-8 flex gap-2" role="search">
+      <label for="q" class="sr-only">우편번호, 지역, 도로명 검색</label>
+      <input
+        id="q"
+        name="q"
+        type="search"
+        inputmode="search"
+        autocomplete="off"
+        placeholder="우편번호 5자리, 동 이름, 도로명 (예: 13627, 구미동, 금송로)"
+        class="flex-1 min-w-0 rounded-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-5 py-3.5 text-base focus:outline-none focus:ring-2 focus:ring-primary"
+      />
+      <button type="submit" class="btn-primary shrink-0">검색</button>
+    </form>
+    <dl class="mt-8 grid grid-cols-3 gap-3 text-center">
+      <div class="rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+        <dt class="text-xs text-muted">우편번호</dt>
+        <dd class="text-2xl font-bold tabular-nums">{num(c.zips_total)}</dd>
+      </div>
+      <div class="rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+        <dt class="text-xs text-muted">시·군·구</dt>
+        <dd class="text-2xl font-bold tabular-nums">{num(c.sigungu)}</dd>
+      </div>
+      <div class="rounded-lg border border-gray-200 dark:border-slate-700 p-4">
+        <dt class="text-xs text-muted">읍·면·동</dt>
+        <dd class="text-2xl font-bold tabular-nums">{num(c.emd)}</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+    <h2 class="text-xl font-bold">수록 지역</h2>
+    <ul class="mt-4 grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+      {
+        sidos.map((s) => {
+          const total = s.sigungu.reduce((a, g) => a + g.n_zip, 0);
+          return (
+            <li>
+              <a href={`/sido/${s.code}`} class="block rounded-lg border border-gray-200 dark:border-slate-700 p-4 hover:border-primary hover:shadow-sm transition">
+                <p class="font-semibold">{s.name}</p>
+                <p class="text-sm text-muted mt-1">
+                  {s.sigungu.length}개 시·군·구 · 우편번호 {num(total)}개
+                </p>
+                {s.code === '41' && <p class="text-xs text-muted mt-1">성남·수원·용인만 수록</p>}
+              </a>
+            </li>
+          );
+        })
+      }
+    </ul>
+    <p class="mt-6 text-sm text-muted">
+      기준: 우체국 우편번호 DB {meta.notice_date} 고시 · 국가기초구역 도형 {meta.zone_version}. 전국 데이터는 준비 중입니다.
+      <a href="/data" class="text-link hover:underline">출처와 한계 보기</a>
+    </p>
+  </section>
+</SiteLayout>
