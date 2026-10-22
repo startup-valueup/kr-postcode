@@ -4,7 +4,7 @@
 |---|---|---|
 | `raw_gz/` | 원본의 압축본(파일별 `.gz`, 약 170MB). 전국 16개 시도 주소 DB, 범위·사서함·변경분, 전국 16개 시도 SHP | 포함 (**비공개 저장소 전제**) |
 | `raw/` | `raw_gz/`를 풀어 쓰는 작업 폴더 | 제외 (`.gitignore`) |
-| `notebooks/` | 가공 노트북 (`01_build_subset_v1.ipynb` 우편번호 요약, `02_build_address_index_v1.ipynb` 주소 조회 색인) | 포함 |
+| `notebooks/` | 가공 노트북 (`01_build_subset_v1.ipynb` 우편번호 요약, `02_build_address_index_v1.ipynb` 주소 조회 색인, `02_build_address_index_v2.ipynb` 전국 주소 조회 색인(옛 법정동코드 합침, 약 16분, `KRPC_OUT`을 `processed`가 아닌 폴더로 지정해 실행)) | 포함 |
 | `processed/` | 사이트가 읽는 가공 결과(JSON, GeoJSON)와 점검 엑셀 | 포함 |
 
 원본 풀기: `cd data && mkdir -p raw && cp -r raw_gz/. raw/ && find raw -name '*.gz' -exec gunzip {} +`
