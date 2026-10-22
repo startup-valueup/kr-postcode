@@ -5,7 +5,7 @@ import { load } from '~/lib/data';
 const { zips, sidos } = load();
 const zipList = [...zips.keys()];
 const examples = ['분당구 불정로 6', '분당구 구미동 123-4', '대전 유성구 대학로 99', '세종 금송로 625', '분당구 판교역로 166'];
-const areas = sidos.map((s) => (s.code === '41' ? '경기도(성남·수원·용인)' : s.name)).join(', ');
+const areas = sidos.map((s) => s.name).join(', ');
 ---
 
 <SiteLayout metadata={{ title: '주소로 우편번호 찾기' }}>
@@ -110,7 +110,7 @@ const areas = sidos.map((s) => (s.code === '41' ? '경기도(성남·수원·용
     }
     if (h.emd) {
       const a = el('a', 'text-link hover:underline', '읍면동 보기') as HTMLAnchorElement;
-      a.href = `/emd/${h.emd}`;
+      a.href = `/emd/${h.emd.slice(0, 8)}`;
       links.append(a);
     }
     if (links.childElementCount) li.append(links);

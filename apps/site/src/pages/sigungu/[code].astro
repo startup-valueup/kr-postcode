@@ -8,12 +8,12 @@ import { load, num, pct } from '~/lib/data';
 export function getStaticPaths() {
   return [...load().sigunguByCode.keys()].map((code) => ({ params: { code }, props: { code } }));
 }
-const { sigunguByCode, zips, emdList } = load();
+const { sigunguByCode, zips, emdGroups } = load();
 const sg = sigunguByCode.get(Astro.props.code)!;
 const rows = sg.zips.map((z) => zips.get(z)!).sort((a, b) => a.zip.localeCompare(b.zip));
 // 이 시군구에 걸친 번호 중 다른 시군구와 겹치는 것
 const multi = rows.filter((r) => r.flags?.multi_sigungu).length;
-const emds = emdList.filter((e) => e.sigungu_code === sg.code).sort((a, b) => b.n_addr - a.n_addr);
+const emds = emdGroups.filter((e) => e.sigungu_code === sg.code).sort((a, b) => b.n_addr - a.n_addr);
 // 지도에는 이 시군구가 대표(주 소속)인 번호 + 주소 없는 도형은 제외
 const mapItems = rows.filter((r) => r.geo);
 ---
@@ -65,15 +65,15 @@ const mapItems = rows.filter((r) => r.geo);
         <h2 class="text-xl font-bold">읍·면·동</h2>
         <ul class="mt-3 text-sm divide-y divide-gray-200 dark:divide-slate-700 rounded-lg border border-gray-200 dark:border-slate-700">
           {
-            emds.slice(0, 60).map((e) => (
+            emds.map((e) => (
               <li class="flex items-baseline justify-between gap-2 px-3 py-2">
                 <a href={`/emd/${e.code}`} class="text-link hover:underline truncate">{e.name}</a>
-                <span class="text-xs text-muted tabular-nums">{e.zips.length}개 번호</span>
+                <span class="text-xs text-muted tabular-nums">{e.ris.length > 0 ? `리 ${e.ris.length}곳 · ` : ''}{e.zips.length}개 번호</span>
               </li>
             ))
           }
         </ul>
-        {emds.length > 60 && <p class="mt-2 text-xs text-muted">주소가 많은 순 60곳만 표시합니다.</p>}
+        <p class="mt-2 text-xs text-muted">법정 읍면동(법정동코드 앞 8자리) 기준이며 주소(건물)가 많은 순입니다. 읍·면의 리는 각 페이지 안에 모아 보여 줍니다.</p>
       </div>
     </div>
 

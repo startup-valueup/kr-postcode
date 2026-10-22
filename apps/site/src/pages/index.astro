@@ -39,7 +39,7 @@ const c = meta.counts;
       </div>
       <div class="rounded-lg border border-gray-200 dark:border-slate-700 p-4">
         <dt class="text-xs text-muted">읍·면·동</dt>
-        <dd class="text-2xl font-bold tabular-nums">{num(c.emd)}</dd>
+        <dd class="text-2xl font-bold tabular-nums">{num(c.emd8 ?? c.emd)}</dd>
       </div>
     </dl>
   </section>
@@ -57,7 +57,6 @@ const c = meta.counts;
                 <p class="text-sm text-muted mt-1">
                   {s.sigungu.length}개 시·군·구 · 우편번호 {num(total)}개
                 </p>
-                {s.code === '41' && <p class="text-xs text-muted mt-1">성남·수원·용인만 수록</p>}
               </a>
             </li>
           );

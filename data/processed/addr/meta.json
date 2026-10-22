@@ -3,16 +3,24 @@
   "base_date": "2026-10-08",
   "notice_date": "2026-10-13"
  },
- "sigungu": 16,
- "building_rows": 296074,
- "road_names": 9257,
- "shard_kb_total": 9951.3,
+ "sigungu": 78,
+ "building_rows": 1702826,
+ "verified_rows": 1702826,
+ "verify_step": 1,
+ "multi_zip_jibun_rows": 2867,
+ "legacy_codes_remapped": 3,
+ "legacy_rows_remapped": 3,
+ "elapsed_s": 358,
+ "max_rss_gb": 0.81,
+ "road_names": 43084,
+ "shard_kb_total": 58591.0,
  "results": {
-  "도로명 건물 일치": 296074,
-  "범위: 같은 우편번호": 296073,
-  "지번 건물 일치": 296074,
-  "도로명 일치 중 우편번호 둘 이상": 26,
-  "범위: 후보 여럿(정답 포함)": 1
+  "도로명 건물 일치": 1702826,
+  "범위: 같은 우편번호": 1702820,
+  "지번 건물 일치": 1702826,
+  "범위: 해당 범위 없음": 1,
+  "범위: 후보 여럿(정답 포함)": 5,
+  "도로명 일치 중 우편번호 둘 이상": 30
  },
  "jibun_range_unmatched_rows": 0
 }

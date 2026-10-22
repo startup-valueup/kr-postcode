@@ -5,11 +5,19 @@ import Notice from '~/components/Notice.astro';
 import { load, num, pct } from '~/lib/data';
 
 export function getStaticPaths() {
-  return load().emdList.map((e) => ({ params: { code: e.code }, props: { code: e.code } }));
+  return load().emdGroups.map((e) => ({ params: { code: e.code }, props: { code: e.code } }));
 }
-const { emdByCode, sigunguByCode, zips } = load();
-const emd = emdByCode.get(Astro.props.code)!;
+const { emdGroupByCode, sigunguByCode, zips, meta } = load();
+const emd = emdGroupByCode.get(Astro.props.code)!;
 const sg = sigunguByCode.get(emd.sigungu_code);
+const hasRi = emd.ris.length > 0;
+// 같은 법정 읍면동에 속한 법정동(리 포함)의 비중을 더해, 우편번호 쪽에서 본 이 지역 비중을 구한다
+const shareInZip = (zip: string) => {
+  const rec = zips.get(zip);
+  if (!rec?.emd) return undefined;
+  const v = rec.emd.filter((x) => x.code?.startsWith(emd.code)).reduce((a, x) => a + x.share, 0);
+  return v > 0 ? Math.min(v, 1) : undefined;
+};
 ---
 
 <SiteLayout metadata={{ title: `${sg?.name ?? ''} ${emd.name} 우편번호` }}>
@@ -22,7 +30,13 @@ const sg = sigunguByCode.get(emd.sigungu_code);
       ]}
     />
     <h1 class="mt-3 text-3xl font-bold">{sg?.name} {emd.name}</h1>
-    <p class="mt-2 text-muted">법정동 코드 {emd.code} · 주소(건물) {num(emd.n_addr)}건 · 우편번호 {emd.zips.length}개</p>
+    <p class="mt-2 text-muted">
+      법정동 코드 {emd.code}(앞 8자리) · 주소(건물) {num(emd.n_addr)}건 · 우편번호 {emd.zips.length}개{hasRi ? ` · 리 ${emd.ris.length}개` : ''}
+    </p>
+    <p class="mt-2 flex flex-wrap gap-2 text-xs">
+      <span class="rounded-full bg-green-100 dark:bg-green-900/30 text-green-900 dark:text-green-200 px-2.5 py-1 font-medium">정확도: 정확 (주소 기준)</span>
+      <span class="rounded-full bg-gray-100 dark:bg-slate-800 px-2.5 py-1">우편번호 DB {meta.notice_date} 고시 · 기준 {meta.base_date}</span>
+    </p>
 
     <h2 class="mt-8 text-xl font-bold">이 지역에 걸친 우편번호</h2>
     <div class="mt-3 overflow-x-auto rounded-lg border border-gray-200 dark:border-slate-700">
@@ -38,8 +52,7 @@ const sg = sigunguByCode.get(emd.sigungu_code);
         <tbody class="divide-y divide-gray-200 dark:divide-slate-700">
           {
             emd.zips.map((z) => {
-              const rec = zips.get(z.zip);
-              const mine = rec?.emd?.find((x) => x.code === emd.code);
+              const mine = shareInZip(z.zip);
               return (
                 <tr class="hover:bg-gray-50 dark:hover:bg-slate-800/40">
                   <td class="px-3 py-2 font-semibold tabular-nums">
@@ -47,7 +60,7 @@ const sg = sigunguByCode.get(emd.sigungu_code);
                   </td>
                   <td class="px-3 py-2 text-right tabular-nums">{num(z.n)}</td>
                   <td class="px-3 py-2 text-right tabular-nums text-muted">{pct(z.share_of_emd)}</td>
-                  <td class="px-3 py-2 text-right tabular-nums text-muted">{mine ? pct(mine.share) : ''}</td>
+                  <td class="px-3 py-2 text-right tabular-nums text-muted">{mine !== undefined ? pct(mine) : ''}</td>
                 </tr>
               );
             })
@@ -55,9 +68,53 @@ const sg = sigunguByCode.get(emd.sigungu_code);
         </tbody>
       </table>
     </div>
+
+    {
+      hasRi && (
+        <Fragment>
+          <h2 class="mt-10 text-xl font-bold">리별 구성</h2>
+          <p class="mt-1 text-xs text-muted">
+            이 {emd.name}에 속한 법정리 {emd.ris.length}곳입니다. 주소(건물) 건수 기준이며, 리 단위 페이지는 따로 없습니다.
+          </p>
+          <div class="mt-3 overflow-x-auto rounded-lg border border-gray-200 dark:border-slate-700">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-50 dark:bg-slate-800/60 text-left text-muted">
+                <tr>
+                  <th class="px-3 py-2 font-medium">리</th>
+                  <th class="px-3 py-2 font-medium">법정동 코드</th>
+                  <th class="px-3 py-2 font-medium text-right">주소 수</th>
+                  <th class="px-3 py-2 font-medium text-right">이 {emd.name} 중 비중</th>
+                  <th class="px-3 py-2 font-medium">걸친 우편번호</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200 dark:divide-slate-700">
+                {emd.ris.map((r) => (
+                  <tr class="hover:bg-gray-50 dark:hover:bg-slate-800/40">
+                    <td class="px-3 py-2 font-medium">{r.name}</td>
+                    <td class="px-3 py-2 tabular-nums text-muted">{r.code}</td>
+                    <td class="px-3 py-2 text-right tabular-nums">{num(r.n_addr)}</td>
+                    <td class="px-3 py-2 text-right tabular-nums text-muted">{pct(r.n_addr / emd.n_addr)}</td>
+                    <td class="px-3 py-2 tabular-nums">
+                      {r.zips.map((z, i) => (
+                        <Fragment>
+                          {i > 0 && ' · '}
+                          <a href={`/zip/${z.zip}`} class="text-link hover:underline">{z.zip}</a>
+                        </Fragment>
+                      ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Fragment>
+      )
+    }
+
     <div class="mt-8">
       <Notice>
-        두 비중은 모두 주소(건물) 건수 기준입니다. 한 우편번호가 이 지역과 다른 지역에 함께 걸쳐 있으면 &lsquo;그 번호 중 이 지역 비중&rsquo;이 100% 미만입니다.
+        두 비중은 모두 주소(건물) 건수 기준입니다. 한 우편번호가 이 지역과 다른 지역에 함께 걸쳐 있으면 &lsquo;그 번호 중 이 지역 비중&rsquo;이 100% 미만입니다. 이 페이지는 법정동코드 앞 8자리(법정 읍면동) 단위이며,
+        읍·면은 소속 리를 한 페이지에 모아 보여 줍니다. 주민센터가 맡는 행정동 구역과는 다를 수 있습니다.
       </Notice>
     </div>
   </section>

@@ -9,7 +9,7 @@ import { load, num, pct, fmtDate } from '~/lib/data';
 export function getStaticPaths() {
   return [...load().zips.keys()].map((zip) => ({ params: { zip }, props: { zip } }));
 }
-const { zips, sigunguByCode, emdByCode, meta } = load();
+const { zips, sigunguByCode, emdGroupByCode, meta } = load();
 const z = zips.get(Astro.props.zip)!;
 const sg = z.primary_sigungu.code ? sigunguByCode.get(z.primary_sigungu.code) : undefined;
 const sigunguName = z.primary_sigungu.name;
@@ -21,12 +21,13 @@ const crumbs = [
   ...(sg ? [{ text: sg.sidoName, href: `/sido/${sg.sidoCode}` }, { text: sg.name, href: `/sigungu/${sg.code}` }] : [{ text: z.sido }, { text: sigunguName }]),
   { text: z.zip },
 ];
-// 같은 주 읍면동의 다른 우편번호
-const siblings = primaryEmd?.code
-  ? (emdByCode.get(primaryEmd.code)?.zips ?? []).filter((s) => s.zip !== z.zip).slice(0, 12)
-  : [];
+// 같은 주 법정 읍면동(법정동코드 앞 8자리)의 다른 우편번호
+const primaryGroup = primaryEmd?.code ? emdGroupByCode.get(primaryEmd.code.slice(0, 8)) : undefined;
+const siblings = primaryGroup ? primaryGroup.zips.filter((s) => s.zip !== z.zip).slice(0, 12) : [];
 const title = `${z.zip} ${sigunguName}${primaryEmd ? ' ' + primaryEmd.name : ''}`;
 const multiEmd = (z.emd?.length ?? 0) > 1;
+// '걸친 읍면동' 카드는 법정 읍면동(법정동코드 앞 8자리) 기준으로 센다 (구성 목록은 리까지 나눈 법정동 기준)
+const emd8Count = z.emd ? new Set(z.emd.map((e) => (e.code ? e.code.slice(0, 8) : e.name))).size : 0;
 const jsonld = {
   '@context': 'https://schema.org',
   '@type': 'Place',
@@ -77,7 +78,7 @@ const jsonld = {
       </div>
       <div class="rounded-lg border border-gray-200 dark:border-slate-700 p-4">
         <dt class="text-xs text-muted">걸친 읍면동</dt>
-        <dd class="text-2xl font-bold tabular-nums">{z.emd ? `${z.emd.length}곳` : '–'}</dd>
+        <dd class="text-2xl font-bold tabular-nums">{z.emd ? `${emd8Count}곳` : '–'}</dd>
       </div>
     </dl>
 
@@ -88,9 +89,9 @@ const jsonld = {
         <div class="mt-10 grid gap-10 md:grid-cols-2">
           <div>
             <h2 class="text-xl font-bold">읍·면·동 구성</h2>
-            <p class="mt-1 text-xs text-muted">법정동 기준, 주소(건물) 건수 비율</p>
+            <p class="mt-1 text-xs text-muted">법정동(리 포함) 기준, 주소(건물) 건수 비율. 링크는 법정 읍면동 페이지로 이동합니다.</p>
             <div class="mt-3">
-              <ShareBars items={z.emd!.map((e) => ({ name: e.name, n: e.n, share: e.share, href: e.code ? `/emd/${e.code}` : undefined, sub: e.hdong && e.hdong[0] && e.hdong[0] !== '(미표기)' ? `행정동 ${e.hdong.filter((h) => h !== '(미표기)').join('·')}` : undefined }))} />
+              <ShareBars items={z.emd!.map((e) => ({ name: e.name, n: e.n, share: e.share, href: e.code ? `/emd/${e.code.slice(0, 8)}` : undefined, sub: e.hdong && e.hdong[0] && e.hdong[0] !== '(미표기)' ? `행정동 ${e.hdong.filter((h) => h !== '(미표기)').join('·')}` : undefined }))} />
             </div>
           </div>
           <div>
@@ -125,10 +126,10 @@ const jsonld = {
     }
 
     {
-      siblings.length > 0 && primaryEmd && (
+      siblings.length > 0 && primaryGroup && (
         <div class="mt-10">
           <h2 class="text-xl font-bold">
-            같은 {primaryEmd.name}의 다른 우편번호
+            같은 {primaryGroup.name}의 다른 우편번호
           </h2>
           <ul class="mt-3 flex flex-wrap gap-2">
             {siblings.map((s) => (
@@ -139,7 +140,7 @@ const jsonld = {
               </li>
             ))}
           </ul>
-          <p class="mt-2 text-sm"><a href={`/emd/${primaryEmd.code}`} class="text-link hover:underline">{primaryEmd.name} 전체 보기 →</a></p>
+          <p class="mt-2 text-sm"><a href={`/emd/${primaryGroup.code}`} class="text-link hover:underline">{primaryGroup.name} 전체 보기 →</a></p>
         </div>
       )
     }

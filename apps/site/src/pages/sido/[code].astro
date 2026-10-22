@@ -14,7 +14,6 @@ const sido = sidos.find((s) => s.code === Astro.props.code)!;
   <section class="max-w-4xl mx-auto px-4 sm:px-6 py-10">
     <Crumbs items={[{ text: '홈', href: '/' }, { text: '지역별', href: '/sido' }, { text: sido.name }]} />
     <h1 class="mt-3 text-3xl font-bold">{sido.name} 우편번호</h1>
-    {sido.code === '41' && <p class="mt-2 text-sm text-muted">시험판에는 성남시·수원시·용인시만 수록되어 있습니다.</p>}
     <div class="mt-6 space-y-6">
       {
         sido.cities.map((c) => (

@@ -30,12 +30,20 @@ export interface ZipRec {
   geo?: { area_km2: number; center: [number, number]; bbox: [number, number, number, number]; polygon: { type: string; coordinates: any } };
   zone?: { created_or_changed: string; reason: string; notified: string };
 }
-export interface EmdRec {
-  code: string;
-  name: string;
+/** 법정 읍면동 = 법정동코드 앞 8자리 묶음 (노트북 01 v2 의 emd8.json). 읍·면은 리를 ris 로 갖고, 동은 ris 가 비어 있다. */
+export interface EmdRi {
+  code: string; // 법정동코드 10자리
+  name: string; // 리 이름
+  n_addr: number;
+  zips: { zip: string; n: number }[];
+}
+export interface EmdGroup {
+  code: string; // 법정동코드 앞 8자리 (URL 에 쓴다)
+  name: string; // 읍·면이면 읍면 이름, 동이면 법정동명
   sigungu_code: string;
   n_addr: number;
   zips: { zip: string; n: number; share_of_emd: number }[];
+  ris: EmdRi[];
 }
 export interface SigunguRec {
   code: string;
@@ -68,7 +76,7 @@ export function load() {
 function build() {
   const meta = readJson('meta.json');
   const hierarchy = readJson<{ sido: string; sigungu: any[] }[]>('hierarchy.json');
-  const emdList = readJson<EmdRec[]>('emd.json');
+  const emdGroups = readJson<EmdGroup[]>('emd8.json');
 
   const zips = new Map<string, ZipRec>();
   for (const f of fs.readdirSync(path.join(ROOT, 'zips')).sort()) {
@@ -91,9 +99,9 @@ function build() {
   const sigunguByCode = new Map<string, SigunguRec>();
   for (const s of sidos) for (const g of s.sigungu) sigunguByCode.set(g.code, g);
 
-  const emdByCode = new Map<string, EmdRec>(emdList.map((e) => [e.code, e]));
+  const emdGroupByCode = new Map<string, EmdGroup>(emdGroups.map((e) => [e.code, e]));
 
-  return { meta, sidos, sigunguByCode, zips, emdByCode, emdList };
+  return { meta, sidos, sigunguByCode, zips, emdGroupByCode, emdGroups };
 }
 
 /** 좌표(경위도)를 SVG 평면으로 옮기는 간단한 변환: 위도 보정 후 등장방형. */
