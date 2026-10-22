@@ -18,7 +18,9 @@
 - 저장소: `startup-valueup/kr-postcode` (private), 브랜치 `main`.
 - 틀: 공개 사이트는 **AstroWind**(Astro + Tailwind 4, MIT, v1 beta.66 복사본, `apps/site`). 내부 데이터 점검용 관리자 앱은 **TailAdmin Free**(HTML+Alpine+Tailwind 4, MIT)로 `apps/admin`에 **별도 앱**으로 만든다(1안). 나중에 필요하면 컴포넌트를 Tailwind 4로 옮긴다(2안).
 - 호스팅: Cloudflare **Workers 정적 자산**(어댑터 불필요, `wrangler.jsonc` 있음). 전국 규모에서는 파일 수 한도 때문에 유료 Workers 플랜이 필요하다(배포 전에 현재 한도를 확인할 것). 개발 중에는 일부 지역만 올린다.
-- 원본 데이터는 Git에 올리지 않는다(`data/raw/`는 `.gitignore`). Git에는 **코드, 가공 노트북, 가공 결과**만 올린다.
+- 원본은 **압축본(`data/raw_gz/`, 약 119MB, 파일별 `.gz`)으로 메인 저장소에 올린다**(사용자 결정). 풀어서 쓰는 작업 폴더 `data/raw/`는 `.gitignore`다. **저장소는 비공개로 유지해야 한다**(우체국 데이터 재배포 라이선스는 사용자가 해결). 새 세션에서 원본 풀기:
+  `cd data && mkdir -p raw && cp -r raw_gz/. raw/ && find raw -name '*.gz' -exec gunzip {} +`
+  매달 새 파일을 받으면 `raw_gz/`를 새 파일로 교체해 커밋한다(이력에 매번 약 120MB가 쌓이므로 월 1회 이하로).
 - **건물 단위 주소를 공개**한다(주소 → 우편번호 조회). 우체국 데이터의 재배포 라이선스는 **사용자가 직접 해결**한다. 따라서 코드는 건물 단위 공개를 전제로 하되, 우편번호별 JSON을 외부에 공개 API로 열어 두지는 않는다(`public/`에 복사하지 않음).
 - 사이트는 **시험판**이다. `src/config.yaml`의 robots는 `index:false, follow:false`(검색엔진 비노출). 사이트 이름은 가칭, 사이트 URL은 임시값(`https://kr-postcode.example`)이다. 공개 전에 바꾼다.
 - 지도는 배경지도 없이 **순수 SVG 경계**만 그린다. 배경지도 방식은 미정(자체 호스팅 OSM/Protomaps, V-World, 네이버·카카오 중 선택).
@@ -34,7 +36,8 @@ apps/site/            AstroWind 기반 공개 사이트 (정적 출력)
   src/lib/addr.ts     주소 → 우편번호 조회(브라우저 실행, 순수 함수)
   scripts/sync-data.mjs  zip_index.json, addr/ 를 public/ 으로 복사 (predev/prebuild 에서 자동 실행)
 data/
-  raw/                원본 (Git 제외) — 배치는 data/README.md 참고
+  raw_gz/             원본 압축본 (Git 포함, 비공개 저장소 전제) — 풀면 raw/
+  raw/                풀어 쓰는 원본 (Git 제외) — 배치는 data/README.md 참고
   notebooks/          01_build_subset_v1 (우편번호 요약·도형·QA), 02_build_address_index_v1 (주소 색인)
   processed/          사이트가 읽는 JSON·GeoJSON, addr/ 색인, qa/ 점검 엑셀
 ```
@@ -70,9 +73,9 @@ data/
 
 완료: 가공 노트북 01·02, 사이트 골격(우편번호·읍면동·시군구·시도 페이지, 검색, 주소로 찾기, 데이터 안내), 주소 → 우편번호 조회.
 
-0. **환경 재현**: 클론 → 원본 배치(`data/raw/`) → 노트북 01·02를 다시 돌려 저장된 `data/processed`와 같은 결과인지 확인 → `data/requirements.txt` 작성 → 사이트 빌드·미리보기.
-1. **③ 지역 프로필**: 사용자 PC의 읍면동 자료 목록·형식 파악 → 읍면동 코드 체계 매핑(법정동 10자리, 코드 개편 여부 확인) → 노트북 `03_build_emd_profile_v1.ipynb` → `data/processed/profile/` → 읍면동 페이지에 지표·시군구 비교·한계 문구·정확도 등급 추가 → 우편번호 페이지에는 `추정` 등급으로 배분 값 표시. 매핑 실패 목록은 QA 엑셀에 남긴다.
-2. **① 관리자 QA 앱** (`apps/admin`, TailAdmin Free): QA 결과를 JSON으로도 내보내 화면 6개(종합 판정, 걸침 구역, 도형만 있는 번호, 면적 불일치, 우편번호 상세 비교, 월간 변경분 비교)를 만든다. 검수 기록은 처음엔 브라우저에 두고 JSON으로 내보낸다. 배포 시 Cloudflare Access로 비공개.
+0. **환경 재현**: ~~완료(2026-10-22)~~ — 원본(`data/raw_gz` 풀기)으로 노트북 01·02를 다시 돌려 저장된 `data/processed` 2,731개 파일과 내용이 모두 같음을 확인했다. 분당구 8,529행은 원본 파일 그대로다. 남은 것: `data/requirements.txt` 작성(Python 3.13, pandas 3.0.6, numpy 2.5.4, geopandas 1.2.0, shapely 2.2.0, openpyxl 3.1.5, nbformat 5.11.1, nbclient 0.11.0, ipykernel 7.4.0 조합이 설치·import 확인됨).
+1. **③ 지역 프로필 (사용자가 나중으로 미룸)**: 사용자 PC의 읍면동 자료 목록·형식 파악 → 읍면동 코드 체계 매핑(법정동 10자리, 코드 개편 여부 확인) → 노트북 `03_build_emd_profile_v1.ipynb` → `data/processed/profile/` → 읍면동 페이지에 지표·시군구 비교·한계 문구·정확도 등급 추가 → 우편번호 페이지에는 `추정` 등급으로 배분 값 표시. 매핑 실패 목록은 QA 엑셀에 남긴다.
+2. **① 관리자 QA 앱 (사용자가 나중으로 미룸)** (`apps/admin`, TailAdmin Free): QA 결과를 JSON으로도 내보내 화면 6개(종합 판정, 걸침 구역, 도형만 있는 번호, 면적 불일치, 우편번호 상세 비교, 월간 변경분 비교)를 만든다. 검수 기록은 처음엔 브라우저에 두고 JSON으로 내보낸다. 배포 시 Cloudflare Access로 비공개.
 3. **시험 배포**: Cloudflare 계정에 연결(사용자 로그인 필요), 개발용 주소로 시험판 배포. 계속 검색엔진 비노출.
 4. **전국 확장**: 전국 원본(16개 시도 DB + 나머지 시도 SHP) 가공, 노트북의 `REGIONS`를 전국으로, 주소 색인을 **저장소에 올리지 않고 빌드할 때 생성**하도록 변경, `names.json` 분할, 약 4만 파일의 배포 한도 확인, 빌드 시간·용량 보고.
 5. 그다음(미정): 배경지도 방식 결정, 위상 보존 단순화(Mapshaper), 월간 갱신(GitHub Actions + 변경분 비교), 실거래 시세·상권 통계, ③ 데이터 상품·문서(Starlight), 사이트 이름·도메인·robots 해제, 우체국 데이터 재배포 약관 확인(사용자).

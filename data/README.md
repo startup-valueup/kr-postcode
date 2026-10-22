@@ -2,11 +2,14 @@
 
 | 폴더 | 내용 | Git |
 |---|---|---|
-| `raw/` | 원본(우체국 우편번호 DB, 범위·사서함·변경분, 국가기초구역 SHP) | 제외 (`.gitignore`) |
+| `raw_gz/` | 원본의 압축본(파일별 `.gz`, 약 119MB). 전국 16개 시도 주소 DB, 범위·사서함·변경분, SHP(세종·대전·경기) | 포함 (**비공개 저장소 전제**) |
+| `raw/` | `raw_gz/`를 풀어 쓰는 작업 폴더 | 제외 (`.gitignore`) |
 | `notebooks/` | 가공 노트북 (`01_build_subset_v1.ipynb` 우편번호 요약, `02_build_address_index_v1.ipynb` 주소 조회 색인) | 포함 |
 | `processed/` | 사이트가 읽는 가공 결과(JSON, GeoJSON)와 점검 엑셀 | 포함 |
 
-`raw/` 배치(노트북이 파일 이름 패턴으로 찾음):
+원본 풀기: `cd data && mkdir -p raw && cp -r raw_gz/. raw/ && find raw -name '*.gz' -exec gunzip {} +`
+
+`raw/` 배치(노트북이 파일 이름 패턴으로 찾음. 현재 SHP 폴더는 `zone30`, `zone36`, `zone41`처럼 시도별로 나뉘어 있어도 된다):
 
 ```
 raw/zipcode_DB/세종특별자치시.txt, 대전광역시.txt, 경기도.txt ...   # 지역별 주소 DB
