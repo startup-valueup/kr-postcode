@@ -1,0 +1,12 @@
+# 가공 노트북(data/notebooks/01, 02) 실행에 필요한 패키지
+# 노트북은 data/notebooks 에서 실행하는 것을 가정한다.
+# Python 3.13 에서 설치·import 를 확인한 조합(2026-10-21)으로 고정했다.
+# pyogrio, pyproj 등은 geopandas 가 끌어오는 하위 의존성이라 고정하지 않았다.
+pandas==3.0.6
+numpy==2.5.4
+geopandas==1.2.0
+shapely==2.2.0   # STRtree 사용
+openpyxl==3.1.5  # QA 엑셀 출력 (pandas ExcelWriter engine="openpyxl")
+nbformat==5.11.1
+nbclient==0.11.0
+ipykernel==7.4.0 # nbclient가 python3 커널을 띄울 때 필요
