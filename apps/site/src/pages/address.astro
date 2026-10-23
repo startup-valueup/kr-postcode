@@ -33,7 +33,9 @@ const areas = sidos.map((s) => s.name).join(', ');
         ))
       }
     </p>
-    <p id="astatus" class="mt-4 text-sm text-muted" aria-live="polite"></p>
+    <p id="ainterp" class="mt-4 text-sm text-muted" aria-live="polite"></p>
+    <p id="astatus" class="mt-1 text-sm text-muted" aria-live="polite"></p>
+    <div id="achoices" class="mt-2 flex flex-wrap gap-2"></div>
     <ul id="aresults" class="mt-2 space-y-3"></ul>
     <noscript><p class="mt-4 text-sm">주소 검색에는 자바스크립트가 필요합니다. <a href="/sido" class="text-link underline">지역별 목록</a>에서 찾아보세요.</p></noscript>
 
@@ -43,7 +45,10 @@ const areas = sidos.map((s) => s.name).join(', ');
           <li><strong>건물 일치</strong>: 우체국 우편번호 DB에 같은 도로명·번호(또는 지번)의 건물이 있습니다.</li>
           <li><strong>범위 기준</strong>: 그 번호의 건물은 DB에 없고, 우체국이 참고자료로 내는 범위주소의 범위 안에 있습니다. 새 건물이나 아직 등록되지 않은 주소일 수 있어 참고로만 보세요.</li>
           <li>한 번지에 우편번호가 둘 이상이면 모두 보여 줍니다. 건물에 따라 다릅니다.</li>
-          <li>시군구를 넣으면 더 빨리 좁혀집니다. 도로명은 “불정로6번길”처럼 이름 그대로 넣어 주세요.</li>
+          <li>띄어쓰기는 달라도 됩니다(“한누리대로2130”, “한누리 대로 2130”). 숫자 사이의 띄어쓰기는 다른 숫자로 보므로 번호는 붙여서 넣어 주세요.</li>
+          <li>시·도와 시·군·구는 줄여 써도 됩니다(“경기”, “충남”, “성남 분당”, “분당구 정자동”). 시·군·구를 빼면 같은 이름이 있는 시·군·구를 골라 달라고 묻습니다. 임의로 고르지 않습니다.</li>
+          <li>층·호·동(“3층”, “301호”, “101동 1203호”)과 괄호 안의 내용은 무시하고 찾습니다. 입력을 다르게 읽었을 때는 어떻게 읽었는지 한 줄로 보여 줍니다.</li>
+          <li>5자리 숫자만 넣으면 우편번호로 보고 그 번호의 페이지를 안내합니다. 오타는 고쳐 주지 않으니 도로명은 이름 그대로 넣어 주세요(“불정로6번길”).</li>
           <li>건물명 검색은 시군구를 함께 넣어야 하며, DB의 건물명(주로 공동주택·상가 이름)만 찾습니다.</li>
         </ul>
         <p class="mt-2">수록 지역(시험판): {areas}. 기준일은 <a href="/data" class="underline">데이터 안내</a>를 확인하세요. 값은 참고용이며 공식 확인은 우체국 및 도로명주소 안내시스템에서 해 주세요.</p>
@@ -60,6 +65,10 @@ const areas = sidos.map((s) => s.name).join(', ');
   const input = document.getElementById('aq') as HTMLInputElement;
   const list = document.getElementById('aresults') as HTMLUListElement;
   const status = document.getElementById('astatus') as HTMLElement;
+  const interp = document.getElementById('ainterp') as HTMLElement;
+  const choicesEl = document.getElementById('achoices') as HTMLElement;
+  let pin: string | undefined; // 선택지에서 고른 시군구 (입력이 바뀌면 해제)
+  let pinLabel = '';
   let zipSet = new Set<string>();
   try {
     zipSet = new Set(JSON.parse(document.getElementById('zipset')!.textContent || '[]'));
@@ -117,16 +126,46 @@ const areas = sidos.map((s) => s.name).join(', ');
     return li;
   }
 
+  function zipCard(zip: string) {
+    const li = el('li', 'rounded-lg border border-gray-200 dark:border-slate-700 p-4');
+    if (zipSet.has(zip)) {
+      const a = el('a', 'text-2xl font-bold tabular-nums text-link hover:underline', zip) as HTMLAnchorElement;
+      a.href = `/zip/${zip}`;
+      li.append(a, el('p', 'mt-1.5', '입력한 5자리 번호의 페이지입니다. 지도·지역 구성을 볼 수 있습니다.'));
+    } else {
+      li.append(el('span', 'text-2xl font-bold tabular-nums', zip), el('p', 'mt-1.5', '수록 지역(시험판)에 없는 우편번호입니다.'));
+    }
+    return li;
+  }
+
   let seq = 0;
   async function run() {
     const q = input.value.trim();
     const my = ++seq;
     list.innerHTML = '';
+    choicesEl.innerHTML = '';
+    interp.textContent = '';
     if (!q) { status.textContent = ''; return; }
+    if (/^\d{5}$/.test(q)) {
+      status.textContent = '우편번호로 입력하셨습니다.';
+      list.append(zipCard(q));
+      return;
+    }
     try {
       const names = await getNames();
-      const pl = plan(q, names);
-      if (!pl.codes.length) { if (my === seq) status.textContent = pl.message || '도로명이나 동 이름을 입력해 주세요.'; return; }
+      const pl = plan(q, names, { pin });
+      if (my !== seq) return;
+      if (pl.interpreted) interp.textContent = `‘${pl.interpreted}’로 해석했습니다.`;
+      if (pl.choices?.length) {
+        pl.choices.forEach((c) => {
+          const b = el('button', 'rounded-full border border-gray-300 dark:border-slate-600 px-3 py-1 text-sm hover:border-primary', c.label) as HTMLButtonElement;
+          b.type = 'button';
+          b.addEventListener('click', () => { pin = c.code; pinLabel = c.label; run(); });
+          choicesEl.append(b);
+        });
+      }
+      if (pin && pl.codes.length) interp.textContent += ` 선택한 지역: ${pinLabel}.`;
+      if (!pl.codes.length) { status.textContent = pl.message || '도로명이나 동 이름을 입력해 주세요.'; return; }
       status.textContent = '찾는 중…';
       const shards = await Promise.all(pl.codes.map(getShard));
       if (my !== seq) return;
@@ -146,6 +185,7 @@ const areas = sidos.map((s) => s.name).join(', ');
 
   let timer: number | undefined;
   input.addEventListener('input', () => {
+    pin = undefined;
     const u = new URL(location.href);
     if (input.value) u.searchParams.set('q', input.value);
     else u.searchParams.delete('q');
